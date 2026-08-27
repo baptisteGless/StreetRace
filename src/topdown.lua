@@ -55,6 +55,38 @@ TopDown.j1TargetY = 0
 TopDown.j2TargetX = 0
 TopDown.j2TargetY = 0
 
+--------------------------------------------------
+-- VOIES
+--------------------------------------------------
+
+TopDown.laneCount = 4
+
+-- Positions X des 4 voies de la route du joueur
+TopDown.playerLanes = {
+    170,
+    290,
+    410,
+    520
+}
+
+-- Positions X des 4 voies de la route de l'IA
+TopDown.aiLanes = {
+    650,
+    820,
+    940,
+    1060
+}
+
+-- Voie actuelle
+TopDown.j1Lane = 4
+TopDown.j2Lane = 1
+
+-- Autorisation de changer de voie
+TopDown.canChangeLane = false
+
+-- Vitesse de déplacement entre deux voies
+TopDown.laneMoveSpeed = 1000
+
 function TopDown.load()
 
     TopDown.images.route2 = love.graphics.newImage(
@@ -112,13 +144,15 @@ function TopDown.start()
     TopDown.distance = 0
     TopDown.transitionBaseY = nil
 
+    TopDown.j1Lane = 4
+    TopDown.j2Lane = 1
+    TopDown.canChangeLane = false
     --------------------------------------------------
     -- POSITION HORIZONTALE
     --------------------------------------------------
 
-    local centerX = TopDown.screenWidth / 2
-    TopDown.j1TargetX = centerX - TopDown.carSpacing / 2 - TopDown.carWidth / 2
-    TopDown.j2TargetX = centerX + TopDown.carSpacing / 2 - TopDown.carWidth / 2
+    TopDown.j1TargetX = TopDown.playerLanes[TopDown.j1Lane]
+    TopDown.j2TargetX = TopDown.aiLanes[TopDown.j2Lane]
 
     --------------------------------------------------
     -- COMPARAISON DES DISTANCES DE LA PHASE 1
@@ -169,6 +203,78 @@ function TopDown.start()
     TopDown.j2X = TopDown.j2TargetX
     TopDown.j1Y = TopDown.carStartY
     TopDown.j2Y = TopDown.carStartY
+
+    TopDown.j1Lane = 4
+    TopDown.j2Lane = 1
+    TopDown.canChangeLane = false
+
+end
+
+function TopDown.changeLane(player, direction)
+
+    if not TopDown.canChangeLane then
+        return
+    end
+
+    --------------------------------------------------
+    -- JOUEUR
+    --------------------------------------------------
+
+    if player == 1 then
+
+        local newLane =
+            TopDown.j1Lane + direction
+
+        if newLane >= 1 and newLane <= 4 then
+
+            TopDown.j1Lane = newLane
+
+        end
+
+    --------------------------------------------------
+    -- IA
+    --------------------------------------------------
+
+    elseif player == 2 then
+
+        local newLane =
+            TopDown.j2Lane + direction
+
+        if newLane >= 1 and newLane <= 4 then
+
+            TopDown.j2Lane = newLane
+
+        end
+
+    end
+
+end
+
+--------------------------------------------------
+-- DEPLACEMENT HORIZONTAL
+--------------------------------------------------
+
+function moveTowards(current, target, speed, dt)
+
+    if current < target then
+
+        current =
+            math.min(
+                current + speed * dt,
+                target
+            )
+
+    elseif current > target then
+
+        current =
+            math.max(
+                current - speed * dt,
+                target
+            )
+
+    end
+
+    return current
 
 end
 
@@ -222,16 +328,29 @@ function TopDown.update(dt)
     if transitionDistance >= TopDown.transitionHeight then
 
         TopDown.phase = 3
+        TopDown.canChangeLane = true
 
     else
 
         TopDown.phase = 2
+        TopDown.canChangeLane = false
 
     end
 
+    --------------------------------------------------
+    -- POSITION CIBLE DES VOITURES
+    --------------------------------------------------
+
+    if TopDown.canChangeLane then
+
+        TopDown.j1TargetX = TopDown.playerLanes[TopDown.j1Lane]
+        TopDown.j2TargetX = TopDown.aiLanes[TopDown.j2Lane]
+        TopDown.j1X = moveTowards( TopDown.j1X, TopDown.j1TargetX, TopDown.laneMoveSpeed, dt)
+        TopDown.j2X = moveTowards( TopDown.j2X, TopDown.j2TargetX, TopDown.laneMoveSpeed, dt)
+
+    end
 
 end
-
 
 function TopDown.drawImage(image, y, height)
 

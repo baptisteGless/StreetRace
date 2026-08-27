@@ -218,7 +218,25 @@ end
 
 function Game.keypressed(key)
 
-    print("Touche :", key)
+    if TopDown.phase > 0 then
+
+        if TopDown.canChangeLane then
+
+            if key == "left" then
+
+                TopDown.changeLane(1, -1)
+
+            elseif key == "right" then
+
+                TopDown.changeLane(1, 1)
+
+            end
+
+        end
+
+        return
+
+    end
 
     if not raceStarted then
         return
