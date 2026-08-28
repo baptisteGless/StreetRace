@@ -6,7 +6,7 @@ TopDown.timer = 0
 TopDown.images = {}
 
 TopDown.distance = 0
-TopDown.speed = 500
+TopDown.speed = 800
 
 TopDown.screenWidth = 1280
 TopDown.screenHeight = 720
@@ -71,15 +71,40 @@ TopDown.playerLanes = {
 
 -- Positions X des 4 voies de la route de l'IA
 TopDown.aiLanes = {
-    650,
-    820,
-    940,
-    1060
+    660,
+    780,
+    900,
+    1030
 }
 
 -- Voie actuelle
 TopDown.j1Lane = 4
 TopDown.j2Lane = 1
+
+--------------------------------------------------
+-- OBSTACLES
+--------------------------------------------------
+
+TopDown.obstacles = {}
+
+TopDown.obstacleTimer = 0
+
+-- Temps minimum entre deux générations
+TopDown.obstacleMinDelay = 0.8
+TopDown.obstacleMaxDelay = 1.4
+
+-- Position d'apparition
+TopDown.obstacleSpawnY = -600
+
+-- Vitesse des obstacles
+TopDown.obstacleSpeed = 500
+
+-- Distance minimale entre deux obstacles
+TopDown.obstacleMinDistance = 350
+
+TopDown.obstacleImages = {}
+
+TopDown.obstacleScale = 0.55
 
 -- Autorisation de changer de voie
 TopDown.canChangeLane = false
@@ -133,6 +158,135 @@ function TopDown.load()
 
     TopDown.transitionStart = 5 * TopDown.speed
 
+    --------------------------------------------------
+    -- OBSTACLES
+    --------------------------------------------------
+
+    TopDown.obstacleImages = {
+
+        {
+            name = "cat-m",
+            image = love.graphics.newImage(
+                "assets/background/cars/cat-m.png"
+            ),
+            width = 150 * TopDown.obstacleScale,
+            height = 302 * TopDown.obstacleScale
+        },
+
+        {
+            name = "cat-r",
+            image = love.graphics.newImage(
+                "assets/background/cars/cat-r.png"
+            ),
+            width = 150 * TopDown.obstacleScale,
+            height = 302 * TopDown.obstacleScale
+        },
+
+        {
+            name = "cat-v",
+            image = love.graphics.newImage(
+                "assets/background/cars/cat-v.png"
+            ),
+            width = 150 * TopDown.obstacleScale,
+            height = 302 * TopDown.obstacleScale
+        },
+
+
+        {
+            name = "jeep-b",
+            image = love.graphics.newImage(
+                "assets/background/cars/jeep-b.png"
+            ),
+            width = 154 * TopDown.obstacleScale,
+            height = 320 * TopDown.obstacleScale
+        },
+
+        {
+            name = "jeep-r",
+            image = love.graphics.newImage(
+                "assets/background/cars/jeep-r.png"
+            ),
+            width = 154 * TopDown.obstacleScale,
+            height = 320 * TopDown.obstacleScale
+        },
+
+        {
+            name = "jeep-v",
+            image = love.graphics.newImage(
+                "assets/background/cars/jeep-v.png"
+            ),
+            width = 154 * TopDown.obstacleScale,
+            height = 320 * TopDown.obstacleScale
+        },
+
+
+        {
+            name = "min-b",
+            image = love.graphics.newImage(
+                "assets/background/cars/min-b.png"
+            ),
+            width = 129 * TopDown.obstacleScale,
+            height = 196 * TopDown.obstacleScale
+        },
+
+        {
+            name = "min-m",
+            image = love.graphics.newImage(
+                "assets/background/cars/min-m.png"
+            ),
+            width = 129 * TopDown.obstacleScale,
+            height = 196 * TopDown.obstacleScale
+        },
+
+        {
+            name = "min-r",
+            image = love.graphics.newImage(
+                "assets/background/cars/min-r.png"
+            ),
+            width = 129 * TopDown.obstacleScale,
+            height = 196 * TopDown.obstacleScale
+        },
+
+
+        {
+            name = "r1-n",
+            image = love.graphics.newImage(
+                "assets/background/cars/r1-n.png"
+            ),
+            width = 152 * TopDown.obstacleScale,
+            height = 305 * TopDown.obstacleScale
+        },
+
+        {
+            name = "r1-r",
+            image = love.graphics.newImage(
+                "assets/background/cars/r1-r.png"
+            ),
+            width = 152 * TopDown.obstacleScale,
+            height = 305 * TopDown.obstacleScale
+        },
+
+        {
+            name = "r1-v",
+            image = love.graphics.newImage(
+                "assets/background/cars/r1-v.png"
+            ),
+            width = 152 * TopDown.obstacleScale,
+            height = 305 * TopDown.obstacleScale
+        },
+
+
+        {
+            name = "bus",
+            image = love.graphics.newImage(
+                "assets/background/cars/bus.png"
+            ),
+            width = 213 * TopDown.obstacleScale,
+            height = 490 * TopDown.obstacleScale
+        }
+
+    }
+
 end
 
 
@@ -147,6 +301,12 @@ function TopDown.start()
     TopDown.j1Lane = 4
     TopDown.j2Lane = 1
     TopDown.canChangeLane = false
+
+    TopDown.obstacles = {}
+    TopDown.obstacleTimer = 0
+
+    TopDown.nextObstacleDelay = math.random( TopDown.obstacleMinDelay * 100, TopDown.obstacleMaxDelay * 100 ) / 100
+
     --------------------------------------------------
     -- POSITION HORIZONTALE
     --------------------------------------------------
@@ -210,6 +370,143 @@ function TopDown.start()
 
 end
 
+function TopDown.canUseLane(side, lane)
+
+    for _, obstacle in ipairs(TopDown.obstacles) do
+
+        if obstacle.side == side
+        and obstacle.lane == lane then
+
+            local distance =
+                math.abs(
+                    obstacle.y -
+                    TopDown.obstacleSpawnY
+                )
+
+            if distance < TopDown.obstacleMinDistance then
+                return false
+            end
+
+        end
+
+    end
+
+    return true
+
+end
+
+function TopDown.spawnObstacle(side)
+
+    --------------------------------------------------
+    -- RECHERCHE DES VOIES DISPONIBLES
+    --------------------------------------------------
+
+    local availableLanes = {}
+
+    for lane = 1, 4 do
+
+        if TopDown.canUseLane(side, lane) then
+            table.insert(
+                availableLanes,
+                lane
+            )
+        end
+
+    end
+
+    --------------------------------------------------
+    -- AUCUNE VOIE DISPONIBLE
+    --------------------------------------------------
+
+    if #availableLanes == 0 then
+        return false
+    end
+
+    --------------------------------------------------
+    -- EVITER DE REMPLIR LES 4 VOIES
+    --------------------------------------------------
+
+    local occupiedLanes = 0
+
+    for _, obstacle in ipairs(TopDown.obstacles) do
+
+        if obstacle.side == side then
+
+            local distance =
+                math.abs(
+                    obstacle.y -
+                    TopDown.obstacleSpawnY
+                )
+
+            if distance < TopDown.obstacleMinDistance then
+                occupiedLanes = occupiedLanes + 1
+            end
+
+        end
+
+    end
+
+    -- Toujours laisser au moins une voie libre
+    if occupiedLanes >= 3 then
+        return false
+    end
+
+    --------------------------------------------------
+    -- CHOIX D'UNE VOIE
+    --------------------------------------------------
+
+    local lane = availableLanes[math.random(1, #availableLanes)]
+
+    --------------------------------------------------
+    -- POSITION X
+    --------------------------------------------------
+
+    local x
+
+    if side == 1 then
+        x = TopDown.playerLanes[lane]
+    else
+        x = TopDown.aiLanes[lane]
+    end
+
+    --------------------------------------------------
+    -- VEHICULE
+    --------------------------------------------------
+
+    local data = TopDown.obstacleImages[math.random( 1, #TopDown.obstacleImages)]
+
+    --------------------------------------------------
+    -- CREATION
+    --------------------------------------------------
+
+    local obstacle = {
+
+        image = data.image,
+
+        width = data.width,
+        height = data.height,
+
+        side = side,
+        lane = lane,
+
+        x = x,
+        y = TopDown.obstacleSpawnY
+
+    }
+
+    --------------------------------------------------
+    -- AJOUT
+    --------------------------------------------------
+
+    table.insert(
+        TopDown.obstacles,
+        obstacle
+    )
+
+    return true
+
+end
+
 function TopDown.changeLane(player, direction)
 
     if not TopDown.canChangeLane then
@@ -222,8 +519,7 @@ function TopDown.changeLane(player, direction)
 
     if player == 1 then
 
-        local newLane =
-            TopDown.j1Lane + direction
+        local newLane = TopDown.j1Lane + direction
 
         if newLane >= 1 and newLane <= 4 then
 
@@ -350,6 +646,63 @@ function TopDown.update(dt)
 
     end
 
+    --------------------------------------------------
+    -- OBSTACLES
+    --------------------------------------------------
+
+    if TopDown.canChangeLane then
+
+        TopDown.obstacleTimer = TopDown.obstacleTimer + dt
+
+        --------------------------------------------------
+        -- GENERATION
+        --------------------------------------------------
+
+        if TopDown.obstacleTimer >= TopDown.nextObstacleDelay then
+
+            -- Route joueur
+            TopDown.spawnObstacle(1)
+
+            -- Route IA
+            TopDown.spawnObstacle(2)
+
+            TopDown.obstacleTimer = 0
+            TopDown.nextObstacleDelay = math.random(TopDown.obstacleMinDelay * 100, TopDown.obstacleMaxDelay * 100) / 100
+
+        end
+
+        --------------------------------------------------
+        -- DEPLACEMENT
+        --------------------------------------------------
+
+        for i = #TopDown.obstacles, 1, -1 do
+
+            local obstacle =
+                TopDown.obstacles[i]
+
+            obstacle.y =
+                obstacle.y +
+                TopDown.obstacleSpeed * dt
+
+
+            --------------------------------------------------
+            -- SUPPRESSION
+            --------------------------------------------------
+
+            if obstacle.y >
+            TopDown.screenHeight + 600 then
+
+                table.remove(
+                    TopDown.obstacles,
+                    i
+                )
+
+            end
+
+        end
+
+    end
+
 end
 
 function TopDown.drawImage(image, y, height)
@@ -414,6 +767,19 @@ function TopDown.draw()
             route4Y = route4Y - TopDown.route4Height
 
         end
+
+    end
+
+    for _, obstacle in ipairs(TopDown.obstacles) do
+
+        love.graphics.draw(
+            obstacle.image,
+            obstacle.x,
+            obstacle.y,
+            0,
+            TopDown.obstacleScale,
+            TopDown.obstacleScale
+        )
 
     end
 
